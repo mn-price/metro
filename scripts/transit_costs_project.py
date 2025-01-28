@@ -11,6 +11,13 @@ Script processes data from Transit Costs Project (tcp), available: https://trans
 Most recently published in January 15, 2025. Two primary datasets:
 - Transit Cost data
 - Rolling Costs data
+
+NEED TO:
+- Filter the raw dataset so we only look at metro projects
+- Improve currency conversion. currently we use what they are calling real_cost, but this converts a currency into 
+  PPP converted USD. It doesn't look like they have been deflated, which is fine, but I do not trust their use of xr and
+  deflators. 
+- Why is UK and US so high? 
 """
 
 
@@ -155,8 +162,8 @@ def remove_data_without_start_end_year(df: pd.DataFrame) -> pd.DataFrame:
 
 def divide_across_years(df: pd.DataFrame, var_to_pro_rate: str) -> pd.DataFrame:
 
-    # Check total
-    print(f"Total after distribution: {df[var_to_pro_rate].sum()}")
+    # Check value before distribution
+    print(f"Total before {var_to_pro_rate} distribution: {df[var_to_pro_rate].sum()}")
 
     # Store column names
     cols = df.columns
@@ -190,8 +197,8 @@ def divide_across_years(df: pd.DataFrame, var_to_pro_rate: str) -> pd.DataFrame:
     # Remove rows with no distributed value (i.e. remove all of rows for a project created but outside of the timeline)
     melted_df = melted_df.loc[lambda d: d[output_var] > 0]
 
-    # Check value
-    print(f"Total after distribution: {melted_df[output_var].sum()}")
+    # Check value after distribution
+    print(f"Total after {var_to_pro_rate} distribution: {melted_df[output_var].sum()}")
 
     return melted_df.sort_values(
         by=["country_cpi", "city", "distributed_year", "line", "phase"]
@@ -254,6 +261,27 @@ def aggregate_data(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     return df.groupby(by=group)["distributed_real_cost"].sum().reset_index(drop=False)
+
+
+def map_cpi_region_onto_tcp_region(df: pd.DataFrame) -> pd.DataFrame:
+
+    # Define mapping
+    region_mapping = {
+        "Central Asia and Eastern Europe": "Eurasia",
+        "East Asia and Pacific": "Asia-Pacific",
+        "Latin America & Caribbean": "Latin America",
+        "Middle East and North Africa": "MENA-Africa",
+        "Other Oceania": "Asia-Pacific",
+        "South Asia": "Asia-Pacific",
+        "US & Canada": "North America",
+        "Western Europe": "Europe",
+    }
+
+    # Map region_cpi to region_tcp
+    df["region_tcp"] = df["region_cpi"].map(region_mapping)
+
+    # Return the updated DataFrame
+    return df
 
 
 def tcp_track_pipeline() -> pd.DataFrame:
@@ -339,9 +367,12 @@ def tcp_cost_per_km() -> pd.DataFrame:
         ],
     )
 
+    # map CPI regions onto TCP regions
+    merged_cost_df = map_cpi_region_onto_tcp_region(merged_cost_df)
+
     # Aggregate by region
     regional_data = (
-        merged_cost_df.groupby(by=["region_cpi", "distributed_year"])[
+        merged_cost_df.groupby(by=["region_tcp", "distributed_year"])[
             ["distributed_real_cost", "distributed_length"]
         ]
         .sum()
