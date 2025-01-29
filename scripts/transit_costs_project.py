@@ -216,6 +216,9 @@ def tcp_cost_per_km() -> pd.DataFrame:
         regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
+    # export as csv
+    regional_data.to_csv(config.Paths.output / "regional_cost_track_per_km.csv", index=False)
+
     return regional_data
 
 

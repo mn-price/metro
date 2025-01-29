@@ -13,7 +13,7 @@ from scripts.common import (
 
 
 """
-Why are the distributed values lower than the pre-distributed values??!!
+
 """
 
 
@@ -32,6 +32,7 @@ def _keep_relevant_columns(df: pd.DataFrame) -> pd.DataFrame:
         "Currency",
         "Cost",
         "PPP rate",
+        "Reference"
     ]
 
     return df.filter(items=cols, axis=1)
@@ -89,13 +90,32 @@ def import_tcp_track_data() -> pd.DataFrame:
 
     return df
 
+def fix_calsta_project_data(df: pd.DataFrame) -> pd.DataFrame:
+    """US project CalSTA is has an incorrect start/end year combo, where start year (2027) is after end year (2026).
+    Function manually changes end year so both are 2027. """
+
+    df['end_year'] = np.where(
+        (df['iso2_code'] == "US") &
+        (df["city"] == "CalSTA") &
+        (df['reference'] == "https://dot.ca.gov/news-releases/news-release-2024-007"),
+        2027,
+        df['end_year']
+    )
+
+    return df
+
 
 def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Function adds column for cost value in USD (PPP). We do this by multiplying the cost value by the USD (PPP) converter.
     The provided value in the original data source also deflates, which we do not want to do given our data is in nominal prices.
     """
-    df["real_cost"] = df["cost"] * df["ppp_rate"]
+    # Remove rows without relevant data
+    df = df.loc[lambda d: ~(d.ppp_rate.isna())]
+    df = df.loc[lambda d: ~(d.cost.isna())]
+
+    # Calculate real cost (in millions)
+    df["real_cost"] = df["cost"] * df["ppp_rate"] / 1000000
 
     return df
 
@@ -136,16 +156,18 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
 def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # Import data
-    df = import_tcp_track_data()
+    df = import_tcp_track_data().pipe(fix_calsta_project_data)
 
-    # Remove rows without start year and end year
+    # Remove rows without start year, end year or carriage data
     df = remove_data_without_start_end_year(df)
     df = df.loc[lambda d: d.end_year >= 2010]
+    df = df.loc[lambda d: ~(d.cars.isna())]
 
     # create column for USD value (not deflated), removing rows that cannot be converted
-    df = df.loc[lambda d: ~(d.ppp_rate.isna())]
-    df = df.loc[lambda d: ~(d.cost.isna())]
     df = add_real_cost_column(df)
+
+    # convert length from m to km
+    df['length'] = df['length'] / 1000
 
     # Add reference tables and map CPI region onto UITP region
     df = add_reference_tables(df).pipe(map_cpi_region_onto_tcp_region)
@@ -174,6 +196,9 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     regional_data["cost_per_cars"] = (
             regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
+
+    # export as csv
+    regional_data.to_csv(config.Paths.output / "regional_cars_cost_per_km.csv", index=False)
 
     return regional_data
 
