@@ -1,3 +1,7 @@
+"""
+Script for functions used across rolling costs and track cost scripts.
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -25,28 +29,58 @@ def add_reference_tables(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def map_cpi_region_onto_tcp_region(df: pd.DataFrame) -> pd.DataFrame:
+def map_country_onto_uitp_region(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Maps countries by iso3_code onto the regions reported in the UITP report. There is no official mapping from UITP
+    for their regions, so a best-guess has been made. Mapping available in the "UIPT country-region mapping.csv" file.
+    """
 
-    # Define mapping
-    region_mapping = {
-        "Central Asia and Eastern Europe": "Eurasia",
-        "East Asia and Pacific": "Asia-Pacific",
-        "Latin America & Caribbean": "Latin America",
-        "Middle East and North Africa": "MENA-Africa",
-        "Other Oceania": "Asia-Pacific",
-        "South Asia": "Asia-Pacific",
-        "US & Canada": "North America",
-        "Western Europe": "Europe",
-    }
+    # import country-region mapping file
+    mapping = pd.read_csv(config.Paths.raw_data / "UITP country-region mapping.csv")
 
-    # Map region_cpi to region_tcp
-    df["region_tcp"] = df["region_cpi"].map(region_mapping)
+    # Drop irrelevant columns
+    mapping = mapping.filter(items=["iso3_code", "uitp_region"], axis=1)
 
-    # Return the updated DataFrame
-    return df
+    # merge with dataframe on iso_code
+    df_merged = pd.merge(left=df, right=mapping, how="left", on="iso3_code")
+
+    return df_merged
+
+
+# Storing function incase we revert to region-to-region mapping. Has been replaced by `map_cpi_country_onto_tcp_region`.
+# def map_cpi_region_onto_tcp_region(df: pd.DataFrame) -> pd.DataFrame:
+#
+#     # Define mapping
+#     region_mapping = {
+#         "Central Asia and Eastern Europe": "Eurasia",
+#         "East Asia and Pacific": "Asia-Pacific",
+#         "Latin America & Caribbean": "Latin America",
+#         "Middle East and North Africa": "MENA-Africa",
+#         "Other Oceania": "Asia-Pacific",
+#         "South Asia": "Asia-Pacific",
+#         "US & Canada": "North America",
+#         "Western Europe": "Europe",
+#     }
+#
+#     # Map region_cpi to region_tcp
+#     df["region_tcp"] = df["region_cpi"].map(region_mapping)
+#
+#     # Return the updated DataFrame
+#     return df
 
 
 def divide_across_years(df: pd.DataFrame, var_to_pro_rate: str) -> pd.DataFrame:
+    """
+    Splits data evenly across the years between the start year and end year (inclusive). For example, if $100m across
+    2018 to 2022, new lines will be added for years 2018, 2019, ..., 2022, with `var_to_pro_rate` equal to $20m (100/5).
+
+    Args:
+        df: pd.DataFrame with data to pro-rate.
+        var_to_pro_rate: column name of variable that needs to be pro-rated
+
+    return: pd.DataFrame with additional column "distributed_{var_to_pro_rate}" and additional lines for years between
+    start years and end years.
+    """
 
     # Check value before distribution
     print(f"Total before {var_to_pro_rate} distribution: {df[var_to_pro_rate].sum()}")

@@ -12,11 +12,6 @@ from scripts.common import (
 )
 
 
-"""
-
-"""
-
-
 def _keep_relevant_columns(df: pd.DataFrame) -> pd.DataFrame:
     cols = [
         "Country",
@@ -32,7 +27,7 @@ def _keep_relevant_columns(df: pd.DataFrame) -> pd.DataFrame:
         "Currency",
         "Cost",
         "PPP rate",
-        "Reference"
+        "Reference",
     ]
 
     return df.filter(items=cols, axis=1)
@@ -47,7 +42,7 @@ def import_tcp_track_data() -> pd.DataFrame:
 
     # Read in data
     df = pd.read_csv(
-        config.Paths.raw_data / "Rolling stock costs - Sheet1.csv",
+        config.Paths.raw_data / "rolling_stock_cost_tcp_raw.csv",
         dtype={
             "trains": float,
             "cars": float,
@@ -90,16 +85,17 @@ def import_tcp_track_data() -> pd.DataFrame:
 
     return df
 
+
 def fix_calsta_project_data(df: pd.DataFrame) -> pd.DataFrame:
     """US project CalSTA is has an incorrect start/end year combo, where start year (2027) is after end year (2026).
-    Function manually changes end year so both are 2027. """
+    Function manually changes end year so both are 2027."""
 
-    df['end_year'] = np.where(
-        (df['iso2_code'] == "US") &
-        (df["city"] == "CalSTA") &
-        (df['reference'] == "https://dot.ca.gov/news-releases/news-release-2024-007"),
+    df["end_year"] = np.where(
+        (df["iso2_code"] == "US")
+        & (df["city"] == "CalSTA")
+        & (df["reference"] == "https://dot.ca.gov/news-releases/news-release-2024-007"),
         2027,
-        df['end_year']
+        df["end_year"],
     )
 
     return df
@@ -119,13 +115,32 @@ def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
 
     # Define cols to merge on
-    cols = ['iso2_code', 'city', 'trainset', 'trains', 'cars', 'train_length',
-    'length', 'contract_year', 'start_year', 'end_year', 'currency', 'cost',
-    'ppp_rate', 'real_cost', 'country_cpi', 'region_cpi',
-    'development_status_2', 'iso3_code', 'region_tcp', 'distributed_year']
+    cols = [
+        "iso2_code",
+        "city",
+        "trainset",
+        "trains",
+        "cars",
+        "train_length",
+        "length",
+        "contract_year",
+        "start_year",
+        "end_year",
+        "currency",
+        "cost",
+        "ppp_rate",
+        "real_cost",
+        "country_cpi",
+        "region_cpi",
+        "development_status_2",
+        "iso3_code",
+        "region_tcp",
+        "distributed_year",
+    ]
 
     # Distribute over years
     df_cars = df.copy()
@@ -153,6 +168,7 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
 
     return merged_cost_df
 
+
 def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # Import data
@@ -167,7 +183,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     df = add_real_cost_column(df)
 
     # convert length from m to km
-    df['length'] = df['length'] / 1000
+    df["length"] = df["length"] / 1000
 
     # Add reference tables and map CPI region onto UITP region
     df = add_reference_tables(df).pipe(map_cpi_region_onto_tcp_region)
@@ -181,7 +197,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Aggregate by region
     regional_data = (
         merged_df.groupby(by=["region_tcp", "distributed_year"])[
-            ['distributed_length', 'distributed_cars', 'distributed_real_cost']
+            ["distributed_length", "distributed_cars", "distributed_real_cost"]
         ]
         .sum()
         .reset_index(drop=False)
@@ -189,16 +205,18 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # Calculate cost per km
     regional_data["cost_per_km_distributed"] = (
-            regional_data["distributed_real_cost"] / regional_data["distributed_length"]
+        regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
     # Calculate cost per km
     regional_data["cost_per_cars"] = (
-            regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
+        regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
 
     # export as csv
-    regional_data.to_csv(config.Paths.output / "regional_cars_cost_per_km.csv", index=False)
+    regional_data.to_csv(
+        config.Paths.output / "regional_cars_cost_per_km.csv", index=False
+    )
 
     return regional_data
 

@@ -1,0 +1,238 @@
+﻿country,iso3_code,uitp_region
+Afghanistan,AFG,Asia-Pacific
+Aland Islands,ALA,Europe
+Albania,ALB,Eurasia
+Algeria,DZA,MENA
+American Samoa,ASM,Asia-Pacific
+Andorra,AND,Europe
+Angola,AGO,Africa
+Anguilla,AIA,Latin America
+Antarctica,ATA,Unknown
+Antigua and Barbuda,ATG,Latin America
+Argentina,ARG,Latin America
+Armenia,ARM,Eurasia
+Aruba,ABW,Latin America
+Australia,AUS,Asia-Pacific
+Austria,AUT,Europe
+Azerbaijan,AZE,Eurasia
+Bahamas,BHS,Latin America
+Bahrain,BHR,MENA
+Bangladesh,BGD,Asia-Pacific
+Barbados,BRB,Latin America
+Belarus,BLR,Eurasia
+Belgium,BEL,Europe
+Belize,BLZ,Latin America
+Benin,BEN,Africa
+Bermuda,BMU,North America
+Bhutan,BTN,Asia-Pacific
+Bolivia,BOL,Latin America
+Bosnia and Herzegovina,BIH,Eurasia
+Botswana,BWA,Africa
+Bouvet Island,BVT,Unknown
+Brazil,BRA,Latin America
+British Indian Ocean Territory,IOT,Unknown
+Brunei,BRN,Asia-Pacific
+Bulgaria,BGR,Eurasia
+Burkina Faso,BFA,Africa
+Burundi,BDI,Africa
+Cambodia,KHM,Asia-Pacific
+Cameroon,CMR,Africa
+Canada,CAN,North America
+Cape Verde,CPV,Africa
+Cayman Islands,CYM,Latin America
+Central African Republic,CAF,Africa
+Chad,TCD,Africa
+Chile,CHL,Latin America
+China,CHN,Asia-Pacific
+Christmas Island,CXR,Asia-Pacific
+Cocos (Keeling) Islands,CCK,Asia-Pacific
+Colombia,COL,Latin America
+Comoros,COM,Africa
+"Congo, Democratic Republic",COD,Africa
+"Congo, Republic",COG,Africa
+Cook Islands,COK,Asia-Pacific
+Costa Rica,CRI,Latin America
+Cote d'Ivoire,CIV,Africa
+Croatia,HRV,Eurasia
+Cuba,CUB,Latin America
+Curacao,CUW,Latin America
+Cyprus,CYP,Eurasia
+Czech Republic,CZE,Europe
+Denmark,DNK,Europe
+Djibouti,DJI,Africa
+Dominica,DMA,Latin America
+Dominican Republic,DOM,Latin America
+Ecuador,ECU,Latin America
+Egypt,EGY,MENA
+El Salvador,SLV,Latin America
+Equatorial Guinea,GNQ,Africa
+Eritrea,ERI,Africa
+Estonia,EST,Eurasia
+Ethiopia,ETH,Africa
+Falkland Islands,FLK,Latin America
+Faroe Islands,FRO,Europe
+Fiji,FJI,Asia-Pacific
+Finland,FIN,Europe
+France,FRA,Europe
+French Guiana,GUF,Latin America
+French Polynesia,PYF,Asia-Pacific
+French Southern Territories,ATF,Unknown
+Gabon,GAB,Africa
+Gambia,GMB,Africa
+Georgia,GEO,Eurasia
+Germany,DEU,Europe
+Ghana,GHA,Africa
+Gibraltar,GIB,Europe
+Greece,GRC,Europe
+Greenland,GRL,Europe
+Grenada,GRD,Latin America
+Guadeloupe,GLP,Latin America
+Guam,GUM,Asia-Pacific
+Guatemala,GTM,Latin America
+Guernsey,GGY,Europe
+Guinea,GIN,Africa
+Guinea-Bissau,GNB,Africa
+Guyana,GUY,Latin America
+Haiti,HTI,Latin America
+Heard Island and McDonald Islands,HMD,Unknown
+Honduras,HND,Latin America
+Hong Kong,HKG,Asia-Pacific
+Hungary,HUN,Eurasia
+Iceland,ISL,Europe
+India,IND,Asia-Pacific
+Indonesia,IDN,Asia-Pacific
+Iran,IRN,MENA
+Iraq,IRQ,MENA
+Ireland,IRL,Europe
+Isle of Man,IMN,Europe
+Israel,ISR,MENA
+Italy,ITA,Europe
+Jamaica,JAM,Latin America
+Japan,JPN,Asia-Pacific
+Jersey,JEY,Europe
+Jordan,JOR,MENA
+Kazakhstan,KAZ,Eurasia
+Kenya,KEN,Africa
+Kiribati,KIR,Asia-Pacific
+"Korea, Democratic People's Republic",PRK,Asia-Pacific
+"Korea, Republic",KOR,Asia-Pacific
+Kosovo,KOS,Eurasia
+Kuwait,KWT,MENA
+Kyrgyzstan,KGZ,Eurasia
+Lao PDR,LAO,Asia-Pacific
+Latvia,LVA,Eurasia
+Lebanon,LBN,MENA
+Lesotho,LSO,Africa
+Liberia,LBR,Africa
+Libya,LBY,MENA
+Liechtenstein,LIE,Europe
+Lithuania,LTU,Eurasia
+Luxembourg,LUX,Europe
+Macau,MAC,Asia-Pacific
+North Macedonia,MKD,Eurasia
+Madagascar,MDG,Africa
+Malawi,MWI,Africa
+Malaysia,MYS,Asia-Pacific
+Maldives,MDV,Asia-Pacific
+Mali,MLI,Africa
+Malta,MLT,Europe
+Marshall Islands,MHL,Asia-Pacific
+Martinique,MTQ,Latin America
+Mauritania,MRT,Africa
+Mauritius,MUS,Africa
+Mayotte,MYT,Africa
+Mexico,MEX,Latin America
+Micronesia,FSM,Asia-Pacific
+Moldova,MDA,Eurasia
+Monaco,MCO,Europe
+Mongolia,MNG,Asia-Pacific
+Montenegro,MNE,Eurasia
+Montserrat,MSR,Latin America
+Morocco,MAR,MENA
+Mozambique,MOZ,Africa
+Myanmar,MMR,Asia-Pacific
+Namibia,NAM,Africa
+Nauru,NRU,Asia-Pacific
+Nepal,NPL,Asia-Pacific
+Netherlands,NLD,Europe
+New Caledonia,NCL,Asia-Pacific
+New Zealand,NZL,Asia-Pacific
+Nicaragua,NIC,Latin America
+Niger,NER,Africa
+Nigeria,NGA,Africa
+Niue,NIU,Asia-Pacific
+Norfolk Island,NFK,Asia-Pacific
+Norway,NOR,Europe
+Oman,OMN,MENA
+Pakistan,PAK,Asia-Pacific
+Palau,PLW,Asia-Pacific
+Panama,PAN,Latin America
+Papua New Guinea,PNG,Asia-Pacific
+Paraguay,PRY,Latin America
+Peru,PER,Latin America
+Philippines,PHL,Asia-Pacific
+Pitcairn,PCN,Unknown
+Poland,POL,Eurasia
+Portugal,PRT,Europe
+Puerto Rico,PRI,Latin America
+Qatar,QAT,MENA
+Romania,ROU,Eurasia
+Russia,RUS,Eurasia
+Rwanda,RWA,Africa
+Saint Barthelemy,BLM,Latin America
+Saint Helena,SHN,Africa
+Saint Kitts and Nevis,KNA,Latin America
+Saint Lucia,LCA,Latin America
+Saint Pierre and Miquelon,SPM,North America
+Saint Vincent and the Grenadines,VCT,Latin America
+Samoa,WSM,Asia-Pacific
+San Marino,SMR,Europe
+Sao Tome and Principe,STP,Africa
+Saudi Arabia,SAU,MENA
+Senegal,SEN,Africa
+Serbia,SRB,Eurasia
+Seychelles,SYC,Africa
+Singapore,SGP,Asia-Pacific
+Slovakia,SVK,Eurasia
+Slovenia,SVN,Europe
+Solomon Islands,SLB,Asia-Pacific
+South Africa,ZAF,Africa
+South Sudan,SSD,Africa
+Spain,ESP,Europe
+Sri Lanka,LKA,Asia-Pacific
+Sudan,SDN,Africa
+Sweden,SWE,Europe
+Switzerland,CHE,Europe
+Syria,SYR,MENA
+Taiwan,TWN,Asia-Pacific
+Tajikistan,TJK,Eurasia
+Tanzania,TZA,Africa
+Thailand,THA,Asia-Pacific
+Timor Leste,TLS,Asia-Pacific
+Togo,TGO,Africa
+Tokelau,TKL,Asia-Pacific
+Tonga,TON,Asia-Pacific
+Trinidad and Tobago,TTO,Latin America
+Tunisia,TUN,MENA
+Turkey,TUR,Eurasia
+Turkmenistan,TKM,Eurasia
+Turks and Caicos Islands,TCA,Latin America
+Tuvalu,TUV,Asia-Pacific
+Uganda,UGA,Africa
+Ukraine,UKR,Eurasia
+United Arab Emirates,ARE,MENA
+United Kingdom,GBR,Europe
+United States of America,USA,North America
+Uruguay,URY,Latin America
+Uzbekistan,UZB,Eurasia
+Vanuatu,VUT,Asia-Pacific
+Vatican City,VAT,Europe
+Venezuela,VEN,Latin America
+Vietnam,VNM,Asia-Pacific
+"Virgin Islands, British",VGB,Latin America
+"Virgin Islands, US",VIR,Latin America
+Wallis and Futuna,WLF,Asia-Pacific
+Western Sahara,ESH,MENA
+Yemen,YEM,MENA
+Zambia,ZMB,Africa
+Zimbabwe,ZWE,Africa
