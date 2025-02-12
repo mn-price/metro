@@ -132,3 +132,13 @@ def remove_data_without_start_end_year(df: pd.DataFrame) -> pd.DataFrame:
     df = df.loc[lambda d: ~(d.end_year.isna())]
 
     return df
+
+
+def remove_non_metro(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function removes projects which are not specific to metro. Some projects in both the track cost and rolling cost
+    dataset are for light rail or commuter/regional rail. We manually go through the track cost and rolling stock cost
+    datasets to split into metro and other types of rail transport.
+    """
+
+    return df.loc[lambda d: d.metro == "Metro"]

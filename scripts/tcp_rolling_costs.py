@@ -6,9 +6,10 @@ from bblocks.cleaning_tools.clean import clean_numeric_series
 
 from scripts.common import (
     add_reference_tables,
-    map_cpi_region_onto_tcp_region,
+    map_country_onto_uitp_region,
     divide_across_years,
     remove_data_without_start_end_year,
+    remove_non_metro
 )
 
 
@@ -28,6 +29,7 @@ def _keep_relevant_columns(df: pd.DataFrame) -> pd.DataFrame:
         "Cost",
         "PPP rate",
         "Reference",
+        "Metro"
     ]
 
     return df.filter(items=cols, axis=1)
@@ -36,8 +38,10 @@ def _keep_relevant_columns(df: pd.DataFrame) -> pd.DataFrame:
 def import_tcp_track_data() -> pd.DataFrame:
     """
     Rolling cost data sourced from: https://transitcosts.com/data/
-    Fixes a few minor issues (casing of column names, renaming country to iso2_code, and fixing incorrect iso2_codes.
-    :return: pd.DataFrame of raw transit cost data
+    Fixes a few minor issues (casing of column names, renaming country to iso2_code, fixing incorrect iso2_codes, and
+    cleaning numeric series (i.e. removing "," from numbers).
+
+    return: pd.DataFrame of raw transit cost data
     """
 
     # Read in data
@@ -67,18 +71,16 @@ def import_tcp_track_data() -> pd.DataFrame:
             "start year": "start_year",
             "end year": "end_year",
             "ppp rate": "ppp_rate",
+            "country": "iso2_code"
         }
     )
 
-    # Convert annoying columns into relevant types
+    # Convert columns into relevant types
     df["cars"] = clean_numeric_series(df["cars"], to=float)
     df["cost"] = clean_numeric_series(df["cost"], to=float)
     df["start_year"] = clean_numeric_series(df["start_year"], to=int)
     df["end_year"] = clean_numeric_series(df["end_year"], to=int)
     df["contract_year"] = clean_numeric_series(df["contract_year"], to=int)
-
-    # Rename columns
-    df = df.rename(columns={"country": "iso2_code"})
 
     # Fix incorrect iso2_codes
     df["iso2_code"] = np.where(df["city"] == "London", "GB", df["iso2_code"])
@@ -115,8 +117,14 @@ def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
 def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function runs through the different columns that need to be distributed over years using `divide_across_years`
+    function.
+
+    return: pd.DataFrame with additional column "distributed_{var_to_pro_rate}" and additional lines for years between
+    start years and end years, for cars, length, and real_cost.
+    """
 
     # Define cols to merge on
     cols = [
@@ -134,21 +142,24 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
         "cost",
         "ppp_rate",
         "real_cost",
+        "metro",
         "country_cpi",
         "region_cpi",
         "development_status_2",
         "iso3_code",
-        "region_tcp",
+        "uitp_region",
         "distributed_year",
     ]
 
-    # Distribute over years
+    # Distribute number of cars over years
     df_cars = df.copy()
     df_cars = divide_across_years(df_cars, var_to_pro_rate="cars")
 
+    # Distribute length of track over years
     df_length = df.copy()
     df_length = divide_across_years(df_length, var_to_pro_rate="length")
 
+    # Distribute real cost of project over years
     df_real_cost = df.copy()
     df_real_cost = divide_across_years(df_real_cost, var_to_pro_rate="real_cost")
 
@@ -168,6 +179,29 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
 
     return merged_cost_df
 
+def add_global_average(df: pd.DataFrame) -> pd.DataFrame:
+    # Store original columns
+    cols = df.columns.tolist()
+
+    # Calculate global average by year, using aggregation for each relevant column
+    global_avg = df.groupby('distributed_year').agg(
+        distributed_length=('distributed_length', 'mean'),
+        distributed_cars=('distributed_cars', 'mean'),
+        distributed_real_cost=('distributed_real_cost', 'mean'),
+        cost_per_km_distributed=('cost_per_km_distributed', 'mean'),
+        cost_per_cars=('cost_per_cars', 'mean')
+    ).reset_index()
+
+    # Add a new column for the UITP region
+    global_avg['uitp_region'] = "global average"
+
+    # Reorder columns to match original df
+    global_avg = global_avg[cols]
+
+    # Add the global average data to the bottom of the original df
+    df_new = pd.concat([df, global_avg], axis=0, ignore_index=True)
+
+    return df_new
 
 def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
@@ -182,36 +216,40 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # create column for USD value (not deflated), removing rows that cannot be converted
     df = add_real_cost_column(df)
 
+    # Remove all non-metro projects
+    df = remove_non_metro(df)
+
     # convert length from m to km
     df["length"] = df["length"] / 1000
 
-    # Add reference tables and map CPI region onto UITP region
-    df = add_reference_tables(df).pipe(map_cpi_region_onto_tcp_region)
+    # Add reference tables and map countries onto UITP region
+    df = add_reference_tables(df).pipe(map_country_onto_uitp_region)
 
     # Distribute cars, length and cost over years
     df = distribute_all_columns_over_years(df)
 
-    # map CPI regions onto TCP regions
-    merged_df = map_cpi_region_onto_tcp_region(df)
-
     # Aggregate by region
     regional_data = (
-        merged_df.groupby(by=["region_tcp", "distributed_year"])[
+        df.groupby(by=["uitp_region", "distributed_year"])[
             ["distributed_length", "distributed_cars", "distributed_real_cost"]
         ]
         .sum()
         .reset_index(drop=False)
     )
 
+
     # Calculate cost per km
     regional_data["cost_per_km_distributed"] = (
         regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
-    # Calculate cost per km
+    # Calculate cost per car
     regional_data["cost_per_cars"] = (
         regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
+
+    # Add global average (required to fill gaps later)
+    regional_data = add_global_average(regional_data)
 
     # export as csv
     regional_data.to_csv(

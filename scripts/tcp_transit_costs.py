@@ -4,7 +4,7 @@ of average costs per km of track by UITP region and year. We aggregate by uitp r
 the UITP metro statistics brief
 (available here: https://cms.uitp.org/wp/wp-content/uploads/2022/05/Statistics-Brief-Metro-Figures-2021-web.pdf)
 
-TCP most recently published two primary datasets in January 15, 2025:
+TCP most recently published two primary datasets on January 15, 2025:
 - Transit Cost data --> processed in tcp_transit_costs
 - Rolling Costs data --> processed in tcp_rolling_costs
 
@@ -20,7 +20,7 @@ from scripts.common import (
     add_reference_tables,
     map_country_onto_uitp_region,
     divide_across_years,
-    remove_data_without_start_end_year,
+    remove_data_without_start_end_year, remove_non_metro,
 )
 
 
@@ -46,16 +46,6 @@ def import_tcp_track_data() -> pd.DataFrame:
     df["iso2_code"] = np.where(df["city"] == "Santo Domingo", "DO", df["iso2_code"])
 
     return df
-
-
-def remove_non_metro(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Function removes projects which are not specific to metro. Some projects in both the track cost and rolling cost
-    dataset are for light rail or commuter/regional rail. We manually go through the track cost and rolling stock cost
-    datasets to split into metro and other types of rail transport.
-    """
-
-    return df.loc[lambda d: d.metro == "Metro"]
 
 
 def distribute_all_columns_over_years(cost: pd.DataFrame) -> pd.DataFrame:
