@@ -20,7 +20,8 @@ from scripts.common import (
     add_reference_tables,
     map_country_onto_uitp_region,
     divide_across_years,
-    remove_data_without_start_end_year, remove_non_metro,
+    remove_data_without_start_end_year,
+    remove_non_metro,
 )
 
 
