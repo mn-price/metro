@@ -244,6 +244,9 @@ def metro_costs_pipeline() -> pd.DataFrame:
     # Calculate total cost of metro by year and region
     df["value_USDm"] = df["new_track_length"] + df["new_track_rolling_stock_costs"]
 
+    # export as csv
+    df.to_csv(config.Paths.output / "metro_costs.csv", index=False)
+
     return df
 
 

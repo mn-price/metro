@@ -185,8 +185,6 @@ def add_global_average(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates global average values for rolling stock costs per km of new track and adds them as new rows to the
     rolling stock cost dataframe.
-    :param df:
-    :return:
     """
     # Store original columns
     cols = df.columns.tolist()
