@@ -154,28 +154,31 @@ def _fill_gaps_with_global_average(
     df: pd.DataFrame, track_cost: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Function fills gaps in average rolling costs per km for regions with a global average. Global average is
+    EDIT: This function now fills missing rolling stock costs with the lowest cost value from other regions. Global min
+    added to the code in the rolling stock costs file (Quick fix. Will do a more efficient fix to this later...)
+
+    ORIGINAL: Function fills gaps in average rolling costs per km for regions with a global average. Global average is
     unweighted, giving all regions equal weight towards the average regardless of the number of projects within that
     region. Adds two columns, one to identify which rows use the global average ('rolling_stock_cost_desc'), and one for
     the average cost of rolling stock per km of new track ('cost_per_km_distributed').
     """
 
     # create global average table with just year and value
-    global_avg = track_cost.loc[lambda d: d.uitp_region == "global average"]
+    global_avg = track_cost.loc[lambda d: d.uitp_region == "global min"]
     global_avg = global_avg.filter(
         items=("year", "cost_per_km_distributed"), axis=1
-    ).rename(columns={"cost_per_km_distributed": "global_avg"})
+    ).rename(columns={"cost_per_km_distributed": "global_min"})
 
     # merge into merged dataset
     df_with_avg = df.merge(global_avg, on=["year"], how="left")
 
     # Fill blanks with global average (adding column to mark which ones are averages)
     df_with_avg["rolling_stock_cost_desc"] = np.where(
-        df_with_avg["cost_per_km_distributed"].isna(), "global average", "regional"
+        df_with_avg["cost_per_km_distributed"].isna(), "global min", "regional"
     )
     df_with_avg["cost_per_km_distributed"] = np.where(
         df_with_avg["cost_per_km_distributed"].isna(),
-        df_with_avg["global_avg"],
+        df_with_avg["global_min"],
         df_with_avg["cost_per_km_distributed"],
     )
 

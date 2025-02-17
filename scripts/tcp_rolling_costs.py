@@ -181,10 +181,13 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
     return merged_cost_df
 
 
-def add_global_average(df: pd.DataFrame) -> pd.DataFrame:
+def add_global_average(df: pd.DataFrame, type: str) -> pd.DataFrame:
     """
-    Calculates global average values for rolling stock costs per km of new track and adds them as new rows to the
+    Calculates global average/minimum values for rolling stock costs per km of new track and adds them as new rows to the
     rolling stock cost dataframe.
+
+    Args:
+        type: string to specify the type of average to calculate. Mean or Min.
     """
     # Store original columns
     cols = df.columns.tolist()
@@ -193,17 +196,17 @@ def add_global_average(df: pd.DataFrame) -> pd.DataFrame:
     global_avg = (
         df.groupby("distributed_year")
         .agg(
-            distributed_length=("distributed_length", "mean"),
-            distributed_cars=("distributed_cars", "mean"),
-            distributed_real_cost=("distributed_real_cost", "mean"),
-            cost_per_km_distributed=("cost_per_km_distributed", "mean"),
-            cost_per_cars=("cost_per_cars", "mean"),
+            distributed_length=("distributed_length", type),
+            distributed_cars=("distributed_cars", type),
+            distributed_real_cost=("distributed_real_cost", type),
+            cost_per_km_distributed=("cost_per_km_distributed", type),
+            cost_per_cars=("cost_per_cars", type),
         )
         .reset_index()
     )
 
     # Add a new column for the UITP region
-    global_avg["uitp_region"] = "global average"
+    global_avg["uitp_region"] = f"global {type}"
 
     # Reorder columns to match original df
     global_avg = global_avg[cols]
@@ -262,7 +265,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     )
 
     # Add global average (required to fill gaps later)
-    regional_data = add_global_average(regional_data)
+    regional_data = add_global_average(regional_data, type ="min")
 
     # export as csv
     regional_data.to_csv(
