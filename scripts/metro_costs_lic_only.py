@@ -11,7 +11,6 @@ their evolution of number of cars data in Q1 2025.
 """
 
 import pandas as pd
-import numpy as np
 from scripts import config
 from scripts.common import merge_in_uitp_new_cars_data
 
@@ -129,14 +128,17 @@ def estimate_track_costs(df: pd.DataFrame) -> pd.DataFrame:
     cols = list(df.columns)
 
     # Read in track costs data
-    track_cost = pd.read_csv(config.Paths.output / "regional_cost_track_per_km.csv")
+    track_cost = pd.read_csv(config.Paths.output / "regional_cost_track_per_km_lic.csv")
+
+    # Keep EMDE only
+    track_cost = track_cost.loc[lambda d: d.development_status_3 == "EMDE"]
 
     # rename year column
     track_cost = track_cost.rename(columns={"distributed_year": "year"})
 
     # merge on year and region
     df_merged = pd.merge(
-        left=df, right=track_cost, on=["year", "uitp_region"], how="left"
+        left=df, right=track_cost, on=["year"], how="left"
     )
 
     # Multiply new track by average cost
@@ -145,55 +147,10 @@ def estimate_track_costs(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # remove calc columns
-    cols = cols + ["cars_per_km", "new_track_track_costs"]
+    cols = cols + ["new_track_track_costs"]
     df_merged = df_merged.filter(items=cols, axis=1)
 
     return df_merged
-
-
-def _fill_gaps_with_global_average(
-    df: pd.DataFrame, track_cost: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    EDIT: This function now fills missing rolling stock costs with the lowest cost value from other regions. Global min
-    added to the code in the rolling stock costs file (Quick fix. Will do a more efficient fix to this later...)
-
-    ORIGINAL: Function fills gaps in average rolling costs per km for regions with a global average. Global average is
-    unweighted, giving all regions equal weight towards the average regardless of the number of projects within that
-    region. Adds two columns, one to identify which rows use the global average ('rolling_stock_cost_desc'), and one for
-    the average cost of rolling stock per km of new track ('cost_per_km_distributed').
-    """
-
-    # create global average table with just year and value
-    global_avg = track_cost.loc[lambda d: d.uitp_region == "global min"]
-    global_avg = global_avg.filter(
-        items=("year", "cost_per_cars", "cost_per_km_distributed"), axis=1
-    ).rename(
-        columns={
-            "cost_per_km_distributed": "global_min_car_cost_per_km",
-            "cost_per_cars": "global_min_cost_per_cars",
-        }
-    )
-
-    # merge into merged dataset
-    df_with_avg = df.merge(global_avg, on=["year"], how="left")
-
-    # Fill blanks with global average (adding column to mark which ones are averages)
-    df_with_avg["rolling_stock_cost_desc"] = np.where(
-        df_with_avg["cost_per_km_distributed"].isna(), "global min", "regional"
-    )
-    df_with_avg["cost_per_km_distributed"] = np.where(
-        df_with_avg["cost_per_km_distributed"].isna(),
-        df_with_avg["global_min_car_cost_per_km"],
-        df_with_avg["cost_per_km_distributed"],
-    )
-    df_with_avg["cost_per_cars"] = np.where(
-        df_with_avg["cost_per_cars"].isna(),
-        df_with_avg["global_min_cost_per_cars"],
-        df_with_avg["cost_per_cars"],
-    )
-
-    return df_with_avg
 
 
 def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
@@ -204,25 +161,26 @@ def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     # Read in track costs data
-    track_cost = pd.read_csv(config.Paths.output / "regional_cars_cost_per_km.csv")
+    track_cost = pd.read_csv(config.Paths.output / "regional_cars_cost_per_km_lic.csv")
+
+    # Keep EMDE only
+    track_cost = track_cost.loc[lambda d: d.development_status_3 == "EMDE"]
 
     # rename year column
     track_cost = track_cost.rename(columns={"distributed_year": "year"})
 
     # merge on year and region
-    df_merged = pd.merge(
-        left=df, right=track_cost, on=["year", "uitp_region"], how="left"
-    )
+    df_merged = pd.merge(left=df, right=track_cost, on=["year"], how="left")
 
     # Fill blanks with global average
-    df_merged = _fill_gaps_with_global_average(df_merged, track_cost)
+    # df_merged = _fill_gaps_with_global_average(df_merged, track_cost)
 
     # Multiply new track by average cost
     df_merged["new_track_rolling_stock_costs"] = (
         df_merged["new_track_length"] * df_merged["cost_per_km_distributed"]
     )
 
-    # Multiply new track by average cost (cars method)
+    # Multiply new track by cost of cars
     df_merged["new_track_rolling_stock_costs_cars"] = (
         df_merged["new_track_length"]
         * df_merged["cars_per_km"]
@@ -233,12 +191,13 @@ def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
     cols = [
         "year",
         "uitp_region",
-        "rolling_stock_cost_desc",
+        # "rolling_stock_cost_desc",
         "new_track_length",
         "new_track_track_costs",
         "new_track_rolling_stock_costs",
+        "new_track_rolling_stock_costs_cars",
     ]
-    # df_merged = df_merged.filter(items=cols, axis=1)
+    df_merged = df_merged.filter(items=cols, axis=1)
 
     return df_merged
 
@@ -268,36 +227,13 @@ def metro_costs_pipeline() -> pd.DataFrame:
     # Calculate total cost of metro by year and region
     df["value_USDm"] = df["new_track_track_costs"] + df["new_track_rolling_stock_costs"]
 
-    # Calculate total cost of metro by year and region
-    df["value_USDm_cars_methodology"] = (
+    # Calculate total cost of metro by year and region (using cars)
+    df["value_USDm_cars"] = (
         df["new_track_track_costs"] + df["new_track_rolling_stock_costs_cars"]
     )
 
-    # keep relevant columns only
-    cols = [
-        "year",
-        "uitp_region",
-        "new_track_length",
-        "cars_per_km",
-        "new_track_track_costs",
-        #"distributed_length",
-        #"distributed_cars",
-        #"distributed_real_cost",
-        #"cost_per_km_distributed",
-        #"cost_per_cars",
-        #"global_min_cost_per_cars",
-        #"global_min_car_cost_per_km",
-        #"rolling_stock_cost_desc",
-        "new_track_rolling_stock_costs",
-        "new_track_rolling_stock_costs_cars",
-        "value_USDm",
-        "value_USDm_cars_methodology",
-    ]
-
-    df = df.filter(items=cols, axis=1)
-
     # export as csv
-    df.to_csv(config.Paths.output / "metro_costs.csv", index=False)
+    df.to_csv(config.Paths.output / "metro_costs_lic_cars.csv", index=False)
 
     return df
 

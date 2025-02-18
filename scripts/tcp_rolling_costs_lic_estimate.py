@@ -6,7 +6,7 @@ from bblocks.cleaning_tools.clean import clean_numeric_series
 
 from scripts.common import (
     add_reference_tables,
-    map_country_onto_uitp_region,
+    create_dev_status_3_column,
     divide_across_years,
     remove_data_without_start_end_year,
     remove_non_metro,
@@ -147,8 +147,9 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
         "country_cpi",
         "region_cpi",
         "development_status_2",
+        "development_status_3",
         "iso3_code",
-        "uitp_region",
+        # "uitp_region",
         "distributed_year",
     ]
 
@@ -181,42 +182,6 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
     return merged_cost_df
 
 
-def add_global_average(df: pd.DataFrame, type: str) -> pd.DataFrame:
-    """
-    Calculates global average/minimum values for rolling stock costs per km of new track and adds them as new rows to the
-    rolling stock cost dataframe.
-
-    Args:
-        type: string to specify the type of average to calculate. Mean or Min.
-    """
-    # Store original columns
-    cols = df.columns.tolist()
-
-    # Calculate global average by year, using aggregation for each relevant column
-    global_avg = (
-        df.groupby("distributed_year")
-        .agg(
-            distributed_length=("distributed_length", type),
-            distributed_cars=("distributed_cars", type),
-            distributed_real_cost=("distributed_real_cost", type),
-            cost_per_km_distributed=("cost_per_km_distributed", type),
-            cost_per_cars=("cost_per_cars", type),
-        )
-        .reset_index()
-    )
-
-    # Add a new column for the UITP region
-    global_avg["uitp_region"] = f"global {type}"
-
-    # Reorder columns to match original df
-    global_avg = global_avg[cols]
-
-    # Add the global average data to the bottom of the original df
-    df_new = pd.concat([df, global_avg], axis=0, ignore_index=True)
-
-    return df_new
-
-
 def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     """
     Pipeline function to create dataframe of average rolling stock costs per km of new track, by year and region.
@@ -225,7 +190,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Import data
     df = import_tcp_track_data().pipe(fix_calsta_project_data)
 
-    # Remove rows without start year, end year or carriage data
+    # Remove rows without start year, end year, cost or carriage data
     df = remove_data_without_start_end_year(df)
     df = df.loc[lambda d: d.end_year >= 2010]
     df = df.loc[lambda d: ~(d.cars.isna())]
@@ -240,14 +205,17 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     df["length"] = df["length"] / 1000
 
     # Add reference tables and map countries onto UITP region
-    df = add_reference_tables(df).pipe(map_country_onto_uitp_region)
+    df = add_reference_tables(df)
+
+    # Add development_status_3 column to group EMDEs (i.e. all EMDEs, China and LDC)
+    df = create_dev_status_3_column(df)
 
     # Distribute cars, length and cost over years
     df = distribute_all_columns_over_years(df)
 
     # Aggregate by region
     regional_data = (
-        df.groupby(by=["uitp_region", "distributed_year"])[
+        df.groupby(by=["development_status_3", "distributed_year"])[
             ["distributed_length", "distributed_cars", "distributed_real_cost"]
         ]
         .sum()
@@ -264,12 +232,9 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
         regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
 
-    # Add global average (required to fill gaps later)
-    regional_data = add_global_average(regional_data, type="min")
-
     # export as csv
     regional_data.to_csv(
-        config.Paths.output / "regional_cars_cost_per_km.csv", index=False
+        config.Paths.output / "regional_cars_cost_per_km_lic.csv", index=False
     )
 
     return regional_data

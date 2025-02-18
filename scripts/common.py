@@ -142,3 +142,28 @@ def remove_non_metro(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     return df.loc[lambda d: d.metro == "Metro"]
+
+
+def create_dev_status_3_column(df: pd.DataFrame) -> pd.DataFrame:
+
+    emde = ["EMDE", "LDC", "China"]
+
+    # Create dev_status_3_column where all EMDEs (EMDE, LDCs and China) are stored as EMDE and AEs as AEs.
+    df["development_status_3"] = np.where(
+        df["development_status_2"] == "Advanced",
+        "AE",
+        np.where(df["development_status_2"].isin(emde), "EMDE", "Error"),
+    )
+
+    return df
+
+
+def merge_in_uitp_new_cars_data(df: pd.DataFrame) -> pd.DataFrame:
+
+    # import in uitp cars per km data
+    cars_per_km = pd.read_csv(config.Paths.raw_data / "uitp_cars_per_km.csv")
+
+    # merge in data on region
+    merged_df = df.merge(cars_per_km, on=["uitp_region"], how="left")
+
+    return merged_df
