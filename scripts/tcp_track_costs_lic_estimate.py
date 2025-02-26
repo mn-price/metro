@@ -22,7 +22,7 @@ from scripts.common import (
     divide_across_years,
     remove_data_without_start_end_year,
     remove_non_metro,
-    create_dev_status_3_column,
+    create_dev_status_3_column, convert_to_usd,
 )
 
 
@@ -41,11 +41,12 @@ def import_tcp_track_data() -> pd.DataFrame:
     df.columns = df.columns.str.lower()
 
     # Rename columns
-    df = df.rename(columns={"country": "iso2_code"})
+    df = df.rename(columns={"country": "iso2_code", "year":"midpoint_year"})
 
     # Fix incorrect iso2_codes in transit costs data
     df["iso2_code"] = np.where(df["city"] == "London", "GB", df["iso2_code"])
     df["iso2_code"] = np.where(df["city"] == "Santo Domingo", "DO", df["iso2_code"])
+    df['currency'] = np.where(df['currency']=="BD","BHD",df['currency'])
 
     return df
 
@@ -88,7 +89,7 @@ def distribute_all_columns_over_years(cost: pd.DataFrame) -> pd.DataFrame:
                 "source1",
                 "cost",
                 "currency",
-                "year",
+                "midpoint_year",
                 "ppp_rate",
                 "real_cost",
                 "cost_km_millions",
@@ -106,6 +107,7 @@ def distribute_all_columns_over_years(cost: pd.DataFrame) -> pd.DataFrame:
                 "development_status_2",
                 "development_status_3",
                 "iso3_code",
+                "lcu_to_usd_xr",
                 "distributed_year",
             ],
         )
@@ -135,6 +137,12 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
     # Remove non-metro
     cost = remove_non_metro(cost)
 
+    # Convert to USD (replacing real cost column which uses US$ PPP with US$ (standard)
+    cost = convert_to_usd(cost)
+
+    # Remove unneccessary rows
+    cost = cost.loc[lambda d: ~(d.real_cost.isna())]
+
     # Distribute data over years and remove rows for flows before 2010
     cost = distribute_all_columns_over_years(cost)
     cost = cost.loc[lambda d: d.distributed_year >= 2010]
@@ -142,8 +150,8 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
     # map countries onto UITP regions
     merged_cost_df = map_country_onto_uitp_region(cost)
 
-    # Aggregate by region
-    regional_data = (
+    # Aggregate by development status
+    dev_status_data = (
         merged_cost_df.groupby(by=["development_status_3", "distributed_year"])[
             ["distributed_real_cost", "distributed_length"]
         ]
@@ -152,8 +160,31 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
     )
 
     # Calculate cost per km
+    dev_status_data["cost_per_km_distributed"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_length"]
+    )
+
+    # export as csv
+    dev_status_data.to_csv(
+        config.Paths.output / "dev_status_cost_track_per_km.csv", index=False
+    )
+
+    """
+    Lazy changes will need to clean this up later deleting some files... Need to also show shares by region.     
+    """
+
+    # Aggregate by uitp region
+    regional_data = (
+        merged_cost_df.groupby(by=["uitp_region", "distributed_year"])[
+            ["distributed_real_cost", "distributed_length"]
+        ]
+        .sum()
+        .reset_index(drop=False)
+    )
+
+    # Calculate cost per km
     regional_data["cost_per_km_distributed"] = (
-        regional_data["distributed_real_cost"] / regional_data["distributed_length"]
+            regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
     # export as csv
@@ -161,7 +192,7 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
         config.Paths.output / "regional_cost_track_per_km_lic.csv", index=False
     )
 
-    return regional_data
+    return dev_status_data
 
 
 if __name__ == "__main__":

@@ -167,3 +167,45 @@ def merge_in_uitp_new_cars_data(df: pd.DataFrame) -> pd.DataFrame:
     merged_df = df.merge(cars_per_km, on=["uitp_region"], how="left")
 
     return merged_df
+
+
+def convert_to_usd(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Uses IMF exchange rates (averaged annually) to convert LCU to USD. Dataset currently uses international USD, stored
+    in the real_cost column, which we want to replace with standard USD.
+    """
+
+    # Change name of current real costs column (this function
+    df = df.rename(columns={"real_cost":"real_cost_usd_ppp"})
+
+    # read in exchange rates. Change year to start_year for merge.
+    xr = _read_exchange_rates()
+    xr = xr.rename(columns={"year":"start_year"})
+
+    # Merge exchange rates with costs data by year and currency.
+    merged_df = df.merge(xr, on=["start_year", "currency"], how="left")
+
+    # Add in new real_cost column
+    merged_df['real_cost'] = merged_df['cost']*merged_df['lcu_to_usd_xr']
+
+    return merged_df
+
+
+def _read_exchange_rates() -> pd.DataFrame:
+    """
+    Function reads in exchange rates data and melts it into long format ready to merge with costs data.
+    """
+    # read in exchange rates and standardise column names
+    xr = pd.read_csv(config.Paths.raw_data / "Exchange Rates.csv", header=2)
+
+    # rename currency code column
+    xr = xr.rename(columns={"Currency Code": "year"})
+
+    # Melt into long format ready to merge with costs data by year and currency.
+    melted_xr = xr.melt(
+        id_vars="year",
+        var_name="currency",
+        value_name="lcu_to_usd_xr",
+    )
+
+    return melted_xr

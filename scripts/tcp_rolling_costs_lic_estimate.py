@@ -10,6 +10,8 @@ from scripts.common import (
     divide_across_years,
     remove_data_without_start_end_year,
     remove_non_metro,
+    convert_to_usd,
+    map_country_onto_uitp_region
 )
 
 
@@ -103,19 +105,19 @@ def fix_calsta_project_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Function adds column for cost value in USD (PPP). We do this by multiplying the cost value by the USD (PPP) converter.
-    The provided value in the original data source also deflates, which we do not want to do given our data is in nominal prices.
-    """
-    # Remove rows without relevant data
-    df = df.loc[lambda d: ~(d.ppp_rate.isna())]
-    df = df.loc[lambda d: ~(d.cost.isna())]
-
-    # Calculate real cost (in millions)
-    df["real_cost"] = df["cost"] * df["ppp_rate"] / 1000000
-
-    return df
+# def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Function adds column for cost value in USD (PPP). We do this by multiplying the cost value by the USD (PPP) converter.
+#     The provided value in the original data source also deflates, which we do not want to do given our data is in nominal prices.
+#     """
+#     # Remove rows without relevant data
+#     df = df.loc[lambda d: ~(d.ppp_rate.isna())]
+#     df = df.loc[lambda d: ~(d.cost.isna())]
+#
+#     # Calculate real cost (in millions)
+#     df["real_cost"] = df["cost"] * df["ppp_rate"] / 1000000
+#
+#     return df
 
 
 def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
@@ -196,7 +198,8 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     df = df.loc[lambda d: ~(d.cars.isna())]
 
     # create column for USD value (not deflated), removing rows that cannot be converted
-    df = add_real_cost_column(df)
+    df = convert_to_usd(df)
+    df = df.loc[lambda d: ~(d.lcu_to_usd_xr.isna())]
 
     # Remove all non-metro projects
     df = remove_non_metro(df)
@@ -206,6 +209,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # Add reference tables and map countries onto UITP region
     df = add_reference_tables(df)
+    df = map_country_onto_uitp_region(df)
 
     # Add development_status_3 column to group EMDEs (i.e. all EMDEs, China and LDC)
     df = create_dev_status_3_column(df)
@@ -213,8 +217,8 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Distribute cars, length and cost over years
     df = distribute_all_columns_over_years(df)
 
-    # Aggregate by region
-    regional_data = (
+    # Aggregate by development status
+    dev_status_data = (
         df.groupby(by=["development_status_3", "distributed_year"])[
             ["distributed_length", "distributed_cars", "distributed_real_cost"]
         ]
@@ -223,13 +227,38 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     )
 
     # Calculate cost per km
+    dev_status_data["cost_per_km_distributed"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_length"]
+    )
+
+    # Calculate cost per car
+    dev_status_data["cost_per_cars"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_cars"]
+    )
+
+    # export as csv
+    dev_status_data.to_csv(
+        config.Paths.output / "dev_status_cars_cost_per_km_lic.csv", index=False
+    )
+
+    """Cheating...... Needs cleaning if we decide to go down this route."""
+
+    regional_data = (
+        df.groupby(by=["uitp_region", "distributed_year"])[
+            ["distributed_length", "distributed_cars", "distributed_real_cost"]
+        ]
+        .sum()
+        .reset_index(drop=False)
+    )
+
+    # Calculate cost per km
     regional_data["cost_per_km_distributed"] = (
-        regional_data["distributed_real_cost"] / regional_data["distributed_length"]
+            regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
     # Calculate cost per car
     regional_data["cost_per_cars"] = (
-        regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
+            regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
 
     # export as csv
