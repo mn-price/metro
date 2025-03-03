@@ -6,10 +6,12 @@ from bblocks.cleaning_tools.clean import clean_numeric_series
 
 from scripts.common import (
     add_reference_tables,
-    map_country_onto_uitp_region,
+    create_dev_status_3_column,
     divide_across_years,
     remove_data_without_start_end_year,
     remove_non_metro,
+    convert_to_usd,
+    map_country_onto_uitp_region
 )
 
 
@@ -45,19 +47,7 @@ def import_tcp_track_data() -> pd.DataFrame:
     """
 
     # Read in data
-    df = pd.read_csv(
-        config.Paths.raw_data / "rolling_stock_cost_tcp_raw.csv",
-        dtype={
-            "trains": float,
-            "cars": float,
-            "train_length": float,
-            "length": float,
-            "contract_year": int,
-            "start_year": int,
-            "end_year": int,
-            "ppp_rate": float,
-        },
-    )
+    df = pd.read_csv(config.Paths.raw_data / "rolling_stock_cost_tcp_raw.csv")
 
     # filter for relevant columns
     df = _keep_relevant_columns(df)
@@ -102,22 +92,6 @@ def fix_calsta_project_data(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
-def add_real_cost_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Function adds column for cost value in USD (PPP). We do this by multiplying the cost value by the USD (PPP) converter.
-    The provided value in the original data source also deflates, which we do not want to do given our data is in nominal prices.
-    """
-    # Remove rows without relevant data
-    df = df.loc[lambda d: ~(d.ppp_rate.isna())]
-    df = df.loc[lambda d: ~(d.cost.isna())]
-
-    # Calculate real cost (in millions)
-    df["real_cost"] = df["cost"] * df["ppp_rate"] / 1000000
-
-    return df
-
-
 def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
     """
     Function runs through the different columns that need to be distributed over years using `divide_across_years`
@@ -147,6 +121,7 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
         "country_cpi",
         "region_cpi",
         "development_status_2",
+        "development_status_3",
         "iso3_code",
         "uitp_region",
         "distributed_year",
@@ -180,7 +155,6 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
 
     return merged_cost_df
 
-
 def add_global_average(df: pd.DataFrame, type: str) -> pd.DataFrame:
     """
     Calculates global average/minimum values for rolling stock costs per km of new track and adds them as new rows to the
@@ -199,7 +173,7 @@ def add_global_average(df: pd.DataFrame, type: str) -> pd.DataFrame:
             distributed_length=("distributed_length", type),
             distributed_cars=("distributed_cars", type),
             distributed_real_cost=("distributed_real_cost", type),
-            cost_per_km_distributed=("cost_per_km_distributed", type),
+            car_cost_per_km=("car_cost_per_km", type),
             cost_per_cars=("cost_per_cars", type),
         )
         .reset_index()
@@ -225,27 +199,61 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Import data
     df = import_tcp_track_data().pipe(fix_calsta_project_data)
 
-    # Remove rows without start year, end year or carriage data
+    # Remove all non-metro projects
+    df = remove_non_metro(df)
+
+    # Add reference tables and map countries onto UITP region
+    df = add_reference_tables(df)
+    df = map_country_onto_uitp_region(df)
+
+    # Add development_status_3 column to group EMDEs (i.e. all EMDEs, China and LDC)
+    df = create_dev_status_3_column(df)
+
+    # create column for USD value (not deflated), removing rows that cannot be converted
+    df = convert_to_usd(df)
+    df = df.loc[lambda d: ~(d.lcu_to_usd_xr.isna())]
+
+    # Convert to millions
+    df['real_cost'] = df['real_cost']/1000000
+
+    # Remove rows without start year, end year, cost or carriage data
     df = remove_data_without_start_end_year(df)
     df = df.loc[lambda d: d.end_year >= 2010]
     df = df.loc[lambda d: ~(d.cars.isna())]
 
-    # create column for USD value (not deflated), removing rows that cannot be converted
-    df = add_real_cost_column(df)
-
-    # Remove all non-metro projects
-    df = remove_non_metro(df)
-
-    # convert length from m to km
-    df["length"] = df["length"] / 1000
-
-    # Add reference tables and map countries onto UITP region
-    df = add_reference_tables(df).pipe(map_country_onto_uitp_region)
-
     # Distribute cars, length and cost over years
     df = distribute_all_columns_over_years(df)
 
-    # Aggregate by region
+    # Now to calculate the average costs by km by region and development status.
+    # First, calculate the average costs per car by development status.
+
+    # Aggregate by development status
+    dev_status_data = (
+        df.groupby(by=["development_status_3", "distributed_year"])[
+            ["distributed_length", "distributed_cars", "distributed_real_cost"]
+        ]
+        .sum()
+        .reset_index(drop=False)
+    )
+
+    # Calculate cost per car
+    dev_status_data["cost_per_cars"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_cars"]
+    )
+
+    # Calculate cost per km
+    dev_status_data["car_cost_per_km"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_length"]
+    )
+
+    # export as csv
+    dev_status_data.to_csv(
+        config.Paths.output / "dev_status_cost_per_car.csv", index=False
+    )
+
+    # Now calculate the average costs per car by region
+
+    # Aggregate by uitp region
     regional_data = (
         df.groupby(by=["uitp_region", "distributed_year"])[
             ["distributed_length", "distributed_cars", "distributed_real_cost"]
@@ -254,22 +262,22 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
         .reset_index(drop=False)
     )
 
-    # Calculate cost per km
-    regional_data["cost_per_km_distributed"] = (
-        regional_data["distributed_real_cost"] / regional_data["distributed_length"]
+    # Calculate cost per car
+    regional_data["cost_per_cars"] = (
+            regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
     )
 
     # Calculate cost per car
-    regional_data["cost_per_cars"] = (
-        regional_data["distributed_real_cost"] / regional_data["distributed_cars"]
+    regional_data["car_cost_per_km"] = (
+            regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
-    # Add global average (required to fill gaps later)
-    regional_data = add_global_average(regional_data, type="min")
+    # Create a global minimum variable
+    regional_data = add_global_average(regional_data, "min")
 
     # export as csv
     regional_data.to_csv(
-        config.Paths.output / "regional_cars_cost_per_km.csv", index=False
+        config.Paths.output / "regional_cost_per_car.csv", index=False
     )
 
     return regional_data
@@ -277,3 +285,5 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
 if __name__ == "__main__":
     rolling_stock = tcp_rolling_stock_pipeline()
+
+

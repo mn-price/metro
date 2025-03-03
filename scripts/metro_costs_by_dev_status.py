@@ -128,7 +128,7 @@ def estimate_track_costs(df: pd.DataFrame) -> pd.DataFrame:
     cols = list(df.columns)
 
     # Read in track costs data
-    track_cost = pd.read_csv(config.Paths.output / "regional_cost_track_per_km_lic.csv")
+    track_cost = pd.read_csv(config.Paths.output / "dev_status_cost_of_track_per_km.csv")
 
     # Keep EMDE only
     track_cost = track_cost.loc[lambda d: d.development_status_3 == "EMDE"]
@@ -161,7 +161,7 @@ def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     # Read in track costs data
-    track_cost = pd.read_csv(config.Paths.output / "regional_cars_cost_per_km_lic.csv")
+    track_cost = pd.read_csv(config.Paths.output / "dev_status_cost_per_car.csv")
 
     # Keep EMDE only
     track_cost = track_cost.loc[lambda d: d.development_status_3 == "EMDE"]
@@ -172,16 +172,8 @@ def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
     # merge on year and region
     df_merged = pd.merge(left=df, right=track_cost, on=["year"], how="left")
 
-    # Fill blanks with global average
-    # df_merged = _fill_gaps_with_global_average(df_merged, track_cost)
-
-    # Multiply new track by average cost
-    df_merged["new_track_rolling_stock_costs"] = (
-        df_merged["new_track_length"] * df_merged["cost_per_km_distributed"]
-    )
-
     # Multiply new track by cost of cars
-    df_merged["new_track_rolling_stock_costs_cars"] = (
+    df_merged["new_track_rolling_stock_costs"] = (
         df_merged["new_track_length"]
         * df_merged["cars_per_km"]
         * df_merged["cost_per_cars"]
@@ -195,7 +187,6 @@ def estimate_rolling_stock_costs(df: pd.DataFrame) -> pd.DataFrame:
         "new_track_length",
         "new_track_track_costs",
         "new_track_rolling_stock_costs",
-        "new_track_rolling_stock_costs_cars",
     ]
     df_merged = df_merged.filter(items=cols, axis=1)
 
@@ -227,13 +218,8 @@ def metro_costs_pipeline() -> pd.DataFrame:
     # Calculate total cost of metro by year and region
     df["value_USDm"] = df["new_track_track_costs"] + df["new_track_rolling_stock_costs"]
 
-    # Calculate total cost of metro by year and region (using cars)
-    df["value_USDm_cars"] = (
-        df["new_track_track_costs"] + df["new_track_rolling_stock_costs_cars"]
-    )
-
     # export as csv
-    df.to_csv(config.Paths.output / "metro_costs_lic_cars.csv", index=False)
+    df.to_csv(config.Paths.output / "metro_costs_emde_cost_average.csv", index=False)
 
     return df
 
