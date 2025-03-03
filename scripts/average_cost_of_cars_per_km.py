@@ -47,19 +47,7 @@ def import_tcp_track_data() -> pd.DataFrame:
     """
 
     # Read in data
-    df = pd.read_csv(
-        config.Paths.raw_data / "rolling_stock_cost_tcp_raw.csv",
-        dtype={
-            "trains": float,
-            "cars": float,
-            "train_length": float,
-            "length": float,
-            "contract_year": int,
-            "start_year": int,
-            "end_year": int,
-            "ppp_rate": float,
-        },
-    )
+    df = pd.read_csv(config.Paths.raw_data / "rolling_stock_cost_tcp_raw.csv")
 
     # filter for relevant columns
     df = _keep_relevant_columns(df)
@@ -151,7 +139,7 @@ def distribute_all_columns_over_years(df: pd.DataFrame) -> pd.DataFrame:
         "development_status_2",
         "development_status_3",
         "iso3_code",
-        # "uitp_region",
+        "uitp_region",
         "distributed_year",
     ]
 
@@ -192,20 +180,8 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Import data
     df = import_tcp_track_data().pipe(fix_calsta_project_data)
 
-    # Remove rows without start year, end year, cost or carriage data
-    df = remove_data_without_start_end_year(df)
-    df = df.loc[lambda d: d.end_year >= 2010]
-    df = df.loc[lambda d: ~(d.cars.isna())]
-
-    # create column for USD value (not deflated), removing rows that cannot be converted
-    df = convert_to_usd(df)
-    df = df.loc[lambda d: ~(d.lcu_to_usd_xr.isna())]
-
     # Remove all non-metro projects
     df = remove_non_metro(df)
-
-    # convert length from m to km
-    df["length"] = df["length"] / 1000
 
     # Add reference tables and map countries onto UITP region
     df = add_reference_tables(df)
@@ -214,8 +190,20 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
     # Add development_status_3 column to group EMDEs (i.e. all EMDEs, China and LDC)
     df = create_dev_status_3_column(df)
 
+    # create column for USD value (not deflated), removing rows that cannot be converted
+    df = convert_to_usd(df)
+    df = df.loc[lambda d: ~(d.lcu_to_usd_xr.isna())]
+
+    # Remove rows without start year, end year, cost or carriage data
+    df = remove_data_without_start_end_year(df)
+    df = df.loc[lambda d: d.end_year >= 2010]
+    df = df.loc[lambda d: ~(d.cars.isna())]
+
     # Distribute cars, length and cost over years
     df = distribute_all_columns_over_years(df)
+
+    # Now to calculate the average costs by km by region and development status.
+    # First, calculate the average costs per car by development status.
 
     # Aggregate by development status
     dev_status_data = (
@@ -226,11 +214,6 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
         .reset_index(drop=False)
     )
 
-    # Calculate cost per km
-    dev_status_data["cost_per_km_distributed"] = (
-            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_length"]
-    )
-
     # Calculate cost per car
     dev_status_data["cost_per_cars"] = (
             dev_status_data["distributed_real_cost"] / dev_status_data["distributed_cars"]
@@ -238,22 +221,18 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # export as csv
     dev_status_data.to_csv(
-        config.Paths.output / "dev_status_cars_cost_per_km_lic.csv", index=False
+        config.Paths.output / "dev_status_cost_per_car.csv", index=False
     )
 
-    """Cheating...... Needs cleaning if we decide to go down this route."""
+    # Now calculate the average costs per car by region
 
+    # Aggregate by uitp region
     regional_data = (
         df.groupby(by=["uitp_region", "distributed_year"])[
             ["distributed_length", "distributed_cars", "distributed_real_cost"]
         ]
         .sum()
         .reset_index(drop=False)
-    )
-
-    # Calculate cost per km
-    regional_data["cost_per_km_distributed"] = (
-            regional_data["distributed_real_cost"] / regional_data["distributed_length"]
     )
 
     # Calculate cost per car
@@ -263,7 +242,7 @@ def tcp_rolling_stock_pipeline() -> pd.DataFrame:
 
     # export as csv
     regional_data.to_csv(
-        config.Paths.output / "regional_cars_cost_per_km_lic.csv", index=False
+        config.Paths.output / "regional_cost_per_car.csv", index=False
     )
 
     return regional_data
