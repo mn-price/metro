@@ -22,7 +22,8 @@ from scripts.common import (
     divide_across_years,
     remove_data_without_start_end_year,
     remove_non_metro,
-    create_dev_status_3_column, convert_to_usd,
+    create_dev_status_3_column,
+    convert_to_usd,
 )
 
 
@@ -128,14 +129,14 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
     # Read in metro infrastructure cost data and join reference files
     cost = import_tcp_track_data().pipe(add_reference_tables)
 
+    # Remove non-metro
+    cost = remove_non_metro(cost)
+
     # Make new dev status column for EMDEs vs advanced economies.
     cost = create_dev_status_3_column(cost)
 
     # Remove projects without the necessary year data for calcs
     cost = remove_data_without_start_end_year(cost)
-
-    # Remove non-metro
-    cost = remove_non_metro(cost)
 
     # Convert to USD (replacing real cost column which uses US$ PPP with US$ (standard)
     cost = convert_to_usd(cost)
@@ -149,6 +150,8 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
 
     # map countries onto UITP regions
     merged_cost_df = map_country_onto_uitp_region(cost)
+
+    # First, create averages by development status.
 
     # Aggregate by development status
     dev_status_data = (
@@ -166,12 +169,10 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
 
     # export as csv
     dev_status_data.to_csv(
-        config.Paths.output / "dev_status_cost_track_per_km.csv", index=False
+        config.Paths.output / "dev_status_cost_of_track_per_km.csv", index=False
     )
 
-    """
-    Lazy changes will need to clean this up later deleting some files... Need to also show shares by region.     
-    """
+    # Now, create averages by region.
 
     # Aggregate by uitp region
     regional_data = (
@@ -189,7 +190,7 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
 
     # export as csv
     regional_data.to_csv(
-        config.Paths.output / "regional_cost_track_per_km_lic.csv", index=False
+        config.Paths.output / "regional_cost_of_track_per_km.csv", index=False
     )
 
     return dev_status_data
