@@ -193,6 +193,27 @@ def tcp_cost_per_km_pipeline() -> pd.DataFrame:
         config.Paths.output / "regional_cost_of_track_per_km.csv", index=False
     )
 
+    # For a test, calculate shares at the country-level first.
+
+    # Aggregate by development status
+    dev_status_data = (
+        merged_cost_df.groupby(by=["iso2_code", "development_status_3", "distributed_year"])[
+            ["distributed_real_cost", "distributed_length"]
+        ]
+        .sum()
+        .reset_index(drop=False)
+    )
+
+    # Calculate cost per km
+    dev_status_data["cost_per_km_distributed"] = (
+            dev_status_data["distributed_real_cost"] / dev_status_data["distributed_length"]
+    )
+
+    # export as csv
+    dev_status_data.to_csv(
+        config.Paths.output / "country_cost_of_track_per_km.csv", index=False
+    )
+
     return dev_status_data
 
 
